@@ -38,8 +38,8 @@ class VariationalAutoencoder(object):
 		self.dim_x, self.dim_z = dim_x, dim_z
 		self.l2_loss = l2_loss
 
-		self.distributions = {      'p_x':  p_x,            
-									'q_z':  q_z,            
+		self.distributions = {      'p_x':  p_x,
+									'q_z':  q_z,
 									'p_z':  p_z    }
 
 		''' Create Graph '''
@@ -65,8 +65,8 @@ class VariationalAutoencoder(object):
 	def _draw_sample( self, mu, log_sigma_sq ):
 
 		epsilon = tf.random_normal( ( tf.shape( mu ) ), 0, 1 )
-		sample = tf.add( mu, 
-				 tf.mul(  
+		sample = tf.add( mu,
+				 tf.multiply(
 				 tf.exp( 0.5 * log_sigma_sq ), epsilon ) )
 
 		return sample
@@ -78,7 +78,7 @@ class VariationalAutoencoder(object):
 		z_mu, z_lsgms   = encoder_out.split( split_dim = 1, num_splits = 2 )
 		z_sample        = self._draw_sample( z_mu, z_lsgms )
 
-		return z_sample, z_mu, z_lsgms 
+		return z_sample, z_mu, z_lsgms
 
 	def _generate_xz( self, z, phase = pt.Phase.train, reuse = False ):
 
@@ -102,7 +102,7 @@ class VariationalAutoencoder(object):
 			prior_z = tf.reduce_sum( utils.tf_gaussian_marg( self.z_mu, self.z_lsgms ), 1 )
 
 		if self.distributions['q_z'] == 'gaussian_marg':
-			
+
 			post_z = tf.reduce_sum( utils.tf_gaussian_ent( self.z_lsgms ), 1 )
 
 		if self.distributions['p_x'] == 'bernoulli':
@@ -143,7 +143,7 @@ class VariationalAutoencoder(object):
 		self.batch_size = self.num_examples // self.num_batches
 
 		''' Session and Summary '''
-		if save_path is None: 
+		if save_path is None:
 			self.save_path = 'checkpoints/model_VAE_{}-{}_{}.cpkt'.format(learning_rate,self.batch_size,time.time())
 		else:
 			self.save_path = save_path
@@ -155,14 +155,14 @@ class VariationalAutoencoder(object):
 
 			self.optimiser = tf.train.AdamOptimizer( learning_rate = learning_rate, beta1 = beta1, beta2 = beta2 )
 			self.train_op = self.optimiser.minimize( self.cost )
-			init = tf.initialize_all_variables()
+			init = tf.global_variables_initializer()
 			self._test_vars = None
 
 		with self.session as sess:
 
 			sess.run(init)
 			if load_path == 'default': self.saver.restore( sess, self.save_path )
-			elif load_path is not None: self.saver.restore( sess, load_path )	
+			elif load_path is not None: self.saver.restore( sess, load_path )
 
 			training_cost = 0.
 			best_eval_log_lik = - np.inf
@@ -174,7 +174,7 @@ class VariationalAutoencoder(object):
 				np.random.shuffle( x )
 
 				''' Training '''
-				
+
 				for x_batch in utils.feed_numpy( self.batch_size, x ):
 
 					training_result = sess.run( [self.train_op, self.cost],
@@ -226,16 +226,16 @@ class VariationalAutoencoder(object):
 						for i,row in enumerate(axes):
 
 							row[0].imshow(x_sample[i].reshape(28, 28), vmin=0, vmax=1)
-							im = row[1].imshow(x_recon_sample[i].reshape(28, 28), vmin=0, vmax=1, 
+							im = row[1].imshow(x_recon_sample[i].reshape(28, 28), vmin=0, vmax=1,
 								cmap=sns.light_palette((1.0, 0.4980, 0.0549), input="rgb", as_cmap=True))
 
 							pylab.setp([a.get_xticklabels() for a in row], visible=False)
 							pylab.setp([a.get_yticklabels() for a in row], visible=False)
-	
+
 						f.subplots_adjust(left=0.0, right=0.9, bottom=0.0, top=1.0)
 						cbar_ax = f.add_axes([0.9, 0.1, 0.04, 0.8])
 						f.colorbar(im, cax=cbar_ax, use_gridspec=True)
-		
+
 						pylab.tight_layout()
 						pylab.savefig('img/recon-'+str(epoch)+'.png', format='png')
 						pylab.clf()

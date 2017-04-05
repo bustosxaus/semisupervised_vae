@@ -42,9 +42,9 @@ class GenerativeClassifier( object ):
 
 		self.dim_x, self.dim_z, self.dim_y = dim_x, dim_z, dim_y
 
-		self.distributions = { 		'p_x': 	p_x,			
-									'q_z': 	q_z,			
-									'p_z': 	p_z,            
+		self.distributions = { 		'p_x': 	p_x,
+									'q_z': 	q_z,
+									'p_z': 	p_z,
 									'p_y':	'uniform'	}
 
 		self.num_examples = num_examples
@@ -74,7 +74,7 @@ class GenerativeClassifier( object ):
 			self.x_unlabelled_lsgms 	= tf.placeholder( tf.float32, [None, self.dim_x] )
 			self.y_lab      			= tf.placeholder( tf.float32, [None, self.dim_y] )
 
-			self.classifier = FullyConnected( 	dim_output 		= self.dim_y, 
+			self.classifier = FullyConnected( 	dim_output 		= self.dim_y,
 												hidden_layers 	= hidden_layers_qy,
 												nonlinearity 	= nonlin_qy,
 												l2loss 			= l2_loss 	)
@@ -98,8 +98,8 @@ class GenerativeClassifier( object ):
 	def _draw_sample( self, mu, log_sigma_sq ):
 
 		epsilon = tf.random_normal( ( tf.shape( mu ) ), 0, 1 )
-		sample = tf.add( mu, 
-				 tf.mul(  
+		sample = tf.add( mu,
+				 tf.multiply(
 				 tf.exp( 0.5 * log_sigma_sq ), epsilon ) )
 
 		return sample
@@ -115,16 +115,16 @@ class GenerativeClassifier( object ):
 	def _generate_zxy( self, x, y, reuse = False ):
 
 		with tf.variable_scope('encoder', reuse = reuse):
-			encoder_out = self.encoder.output( tf.concat( 1, [x, y] ) )
+			encoder_out = self.encoder.output( tf.concat([x, y], 1) )
 		z_mu, z_lsgms   = encoder_out.split( split_dim = 1, num_splits = 2 )
 		z_sample        = self._draw_sample( z_mu, z_lsgms )
 
-		return z_sample, z_mu, z_lsgms 
+		return z_sample, z_mu, z_lsgms
 
 	def _generate_xzy( self, z, y, reuse = False ):
 
 		with tf.variable_scope('decoder', reuse = reuse):
-			decoder_out = self.decoder.output( tf.concat( 1, [z, y] ) )
+			decoder_out = self.decoder.output( tf.concat([z, y], 1) )
 		x_recon_mu, x_recon_lsgms   = decoder_out.split( split_dim = 1, num_splits = 2 )
 
 		return x_recon_mu, x_recon_lsgms
@@ -132,7 +132,7 @@ class GenerativeClassifier( object ):
 	def _objective( self ):
 
 		###############
-		''' L(x,y) ''' 
+		''' L(x,y) '''
 		###############
 
 		def L(x_recon, x, y, z):
@@ -148,7 +148,7 @@ class GenerativeClassifier( object ):
 			if self.distributions['p_y'] == 'uniform':
 
 				y_prior = (1. / self.dim_y) * tf.ones_like( y )
-				log_prior_y = - tf.nn.softmax_cross_entropy_with_logits( y_prior, y )
+				log_prior_y = - tf.nn.softmax_cross_entropy_with_logits(logits=y_prior, labels=y)
 
 			if self.distributions['p_x'] == 'gaussian':
 
@@ -177,10 +177,10 @@ class GenerativeClassifier( object ):
 		L_lab = L(  [self.x_recon_lab_mu, self.x_recon_lab_lsgms], self.x_lab, self.y_lab,
 					[self.z_lab, self.z_lab_mu, self.z_lab_lsgms] )
 
-		L_lab += - self.beta * tf.nn.softmax_cross_entropy_with_logits( self.y_lab_logits, self.y_lab )
+		L_lab += - self.beta * tf.nn.softmax_cross_entropy_with_logits(logits=self.y_lab_logits, labels=self.y_lab )
 
 		############################
-		''' Unabelled Datapoints '''
+		''' Unlabelled Datapoints '''
 		############################
 
 		def one_label_tensor( label ):
@@ -191,31 +191,29 @@ class GenerativeClassifier( object ):
 				indices += [[ i, label ]]
 				values += [ 1. ]
 
-			_y_ulab = tf.sparse_tensor_to_dense( 
-					  tf.SparseTensor( indices=indices, values=values, shape=[ self.num_ulab_batch, self.dim_y ] ), 0.0 )
+			_y_ulab = tf.sparse_tensor_to_dense(
+					  tf.SparseTensor( indices=indices, values=values, dense_shape=[ self.num_ulab_batch, self.dim_y ] ))
 
 			return _y_ulab
 
 		self.y_ulab_logits, self.x_ulab = self._generate_yx( self.x_unlabelled_mu, self.x_unlabelled_lsgms, reuse = True )
 
 		for label in range(self.dim_y):
-
 			_y_ulab = one_label_tensor( label )
 			self.z_ulab, self.z_ulab_mu, self.z_ulab_lsgms = self._generate_zxy( self.x_ulab, _y_ulab, reuse = True )
 			self.x_recon_ulab_mu, self.x_recon_ulab_lsgms = self._generate_xzy( self.z_ulab, _y_ulab, reuse = True )
 			_L_ulab =   tf.expand_dims(
-						L(  [self.x_recon_ulab_mu, self.x_recon_ulab_lsgms], self.x_ulab, _y_ulab, 
-							[self.z_ulab, self.z_ulab_mu, self.z_ulab_lsgms]), 1)
+						L(  [self.x_recon_ulab_mu, self.x_recon_ulab_lsgms], self.x_ulab, _y_ulab,
+							[self.z_ulab, self.z_ulab_mu, self.z_ulab_lsgms]), axis=1)
 
-			if label == 0: L_ulab = tf.identity( _L_ulab )
-			else: L_ulab = tf.concat( 1, [L_ulab, _L_ulab] )
+			if label == 0:
+				L_ulab = tf.identity( _L_ulab )
+			else:
+				L_ulab = tf.concat([L_ulab, _L_ulab], axis=1)
 
 		self.y_ulab = self.y_ulab_logits.softmax_activation()
 
-		U = tf.reduce_sum( 
-			tf.mul( self.y_ulab, 
-			tf.sub( L_ulab, 
-			tf.log( self.y_ulab ) ) ), 1 )
+		U = tf.reduce_sum(tf.multiply(self.y_ulab, tf.subtract(L_ulab, tf.log(self.y_ulab))), 1)
 
 		########################
 		''' Prior on Weights '''
@@ -223,7 +221,7 @@ class GenerativeClassifier( object ):
 
 		L_weights = 0.
 		_weights = tf.trainable_variables()
-		for w in _weights: 
+		for w in _weights:
 			L_weights += tf.reduce_sum( utils.tf_stdnormal_logpdf( w ) )
 
 		##################
@@ -233,14 +231,14 @@ class GenerativeClassifier( object ):
 		L_lab_tot = tf.reduce_sum( L_lab )
 		U_tot = tf.reduce_sum( U )
 
-		self.cost = ( ( L_lab_tot + U_tot ) * self.num_batches + L_weights ) / ( 
+		self.cost = ( ( L_lab_tot + U_tot ) * self.num_batches + L_weights ) / (
 				- self.num_batches * self.batch_size )
 
 		##################
 		''' Evaluation '''
 		##################
 
-		self.y_test_logits, _ = self._generate_yx( self.x_labelled_mu, self.x_labelled_lsgms, 
+		self.y_test_logits, _ = self._generate_yx( self.x_labelled_mu, self.x_labelled_lsgms,
 			phase = pt.Phase.test, reuse = True )
 		self.y_test_pred = self.y_test_logits.softmax( self.y_lab )
 
@@ -265,7 +263,7 @@ class GenerativeClassifier( object ):
 
 
 		''' Session and Summary '''
-		if save_path is None: 
+		if save_path is None:
 			self.save_path = 'checkpoints/model_GC_{}-{}-{}_{}.cpkt'.format(
 				self.num_lab,learning_rate,self.batch_size,time.time())
 		else:
@@ -278,10 +276,10 @@ class GenerativeClassifier( object ):
 
 			self.optimiser = tf.train.AdamOptimizer( learning_rate = learning_rate, beta1 = beta1, beta2 = beta2 )
 			self.train_op = self.optimiser.minimize( self.cost )
-			init = tf.initialize_all_variables()
+			init = tf.global_variables_initializer()
 			self._test_vars = None
-			
-		
+
+
 		_data_labelled = np.hstack( [x_labelled, y] )
 		_data_unlabelled = x_unlabelled
 		x_valid_mu, x_valid_lsgms = x_valid[ :, :self.dim_x ], x_valid[ :, self.dim_x:2*self.dim_x ]
@@ -290,7 +288,7 @@ class GenerativeClassifier( object ):
 
 			sess.run(init)
 			if load_path == 'default': self.saver.restore( sess, self.save_path )
-			elif load_path is not None: self.saver.restore( sess, load_path )	
+			elif load_path is not None: self.saver.restore( sess, load_path )
 
 			best_eval_accuracy = 0.
 			stop_counter = 0
@@ -302,13 +300,13 @@ class GenerativeClassifier( object ):
 				np.random.shuffle( _data_unlabelled )
 
 				''' Training '''
-				
-				for x_l_mu, x_l_lsgms, y, x_u_mu, x_u_lsgms in utils.feed_numpy_semisupervised(	
-					self.num_lab_batch, self.num_ulab_batch, 
-					_data_labelled[:,:2*self.dim_x], _data_labelled[:,2*self.dim_x:],_data_unlabelled ):
+
+				for x_l_mu, x_l_lsgms, y, x_u_mu, x_u_lsgms in utils.feed_numpy_semisupervised(
+					self.num_lab_batch, self.num_ulab_batch,
+					_data_labelled[:,:2*self.dim_x], _data_labelled[:,2*self.dim_x:], _data_unlabelled):
 
 					training_result = sess.run( [self.train_op, self.cost],
-											feed_dict = {	self.x_labelled_mu:			x_l_mu, 	
+											feed_dict = {	self.x_labelled_mu:			x_l_mu,
 															self.x_labelled_lsgms: 		x_l_lsgms,
 															self.y_lab: 				y,
 															self.x_unlabelled_mu: 		x_u_mu,
@@ -326,7 +324,7 @@ class GenerativeClassifier( object ):
 					if test_vars:
 						if test_vars != self._test_vars:
 							self._test_vars = list(test_vars)
-							self._test_var_init_op = tf.initialize_variables(test_vars)
+							self._test_var_init_op = tf.variables_initializer(test_vars)
 						self._test_var_init_op.run()
 
 
@@ -357,7 +355,7 @@ class GenerativeClassifier( object ):
 	def predict_labels( self, x_test, y_test ):
 
 		test_vars = tf.get_collection(bookkeeper.GraphKeys.TEST_VARIABLES)
-		tf.initialize_variables(test_vars).run()
+		tf.variables_initializer(test_vars).run()
 
 		x_test_mu = x_test[:,:self.dim_x]
 		x_test_lsgms = x_test[:,self.dim_x:2*self.dim_x]

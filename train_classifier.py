@@ -29,7 +29,7 @@ def encode_dataset( model_path, min_std = 0.0 ):
     return data_lab, data_ulab, data_valid, data_test
 
 if __name__ == '__main__':
-    
+
     #############################
     ''' Experiment Parameters '''
     #############################
@@ -53,7 +53,7 @@ if __name__ == '__main__':
 
     mnist_path = 'mnist/mnist_28.pkl.gz'
     #Uses anglpy module from original paper (linked at top) to split the dataset for semi-supervised training
-    train_x, train_y, valid_x, valid_y, test_x, test_y = mnist.load_numpy_split(mnist_path, binarize_y=True) 
+    train_x, train_y, valid_x, valid_y, test_x, test_y = mnist.load_numpy_split(mnist_path, binarize_y=True)
     x_l, y_l, x_u, y_u = mnist.create_semisupervised(train_x, train_y, num_lab)
 
     x_lab, y_lab = x_l.T, y_l.T
@@ -70,7 +70,7 @@ if __name__ == '__main__':
 
     data_lab, data_ulab, data_valid, data_test = encode_dataset( VAE_model_path, min_std )
 
-    dim_x = data_lab.shape[1] / 2
+    dim_x = data_lab.shape[1] // 2
     dim_y = y_lab.shape[1]
     num_examples = data_lab.shape[0] + data_ulab.shape[0]
 
@@ -80,14 +80,14 @@ if __name__ == '__main__':
 
     GC = GenerativeClassifier(  dim_x, dim_z, dim_y,
                                 num_examples, num_lab, num_batches,
-                                hidden_layers_px    = hidden_layers_px, 
-                                hidden_layers_qz    = hidden_layers_qz, 
+                                hidden_layers_px    = hidden_layers_px,
+                                hidden_layers_qz    = hidden_layers_qz,
                                 hidden_layers_qy    = hidden_layers_qy,
                                 alpha               = alpha )
 
     GC.train(   x_labelled      = data_lab, y = y_lab, x_unlabelled = data_ulab,
                 x_valid         = data_valid, y_valid = y_valid,
-                epochs          = epochs, 
+                epochs          = epochs,
                 learning_rate   = learning_rate,
                 seed            = seed,
                 print_every     = 10,

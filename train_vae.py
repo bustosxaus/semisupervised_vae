@@ -38,16 +38,14 @@ if __name__ == '__main__':
     ''' Train Variational Auto-Encoder '''
     ######################################
 
-    VAE = VariationalAutoencoder(   dim_x = dim_x, 
+    VAE = VariationalAutoencoder(   dim_x = dim_x,
                                     dim_z = dim_z,
                                     hidden_layers_px = hidden_layers_px,
                                     hidden_layers_qz = hidden_layers_qz,
                                     l2_loss = l2_loss )
 
-    #draw_img uses pylab and seaborn to draw images of original vs. reconstruction 
+    #draw_img uses pylab and seaborn to draw images of original vs. reconstruction
     #every n iterations (set to 0 to disable)
 
     VAE.train(  x = x_train, x_valid = x_valid, epochs = epochs, num_batches = num_batches,
-                learning_rate = learning_rate, seed = seed, stop_iter = 30, print_every = 10, draw_img = 0 )
-
-    
+            learning_rate = learning_rate, seed = seed, stop_iter = 30, print_every = 10, draw_img = 0 )
